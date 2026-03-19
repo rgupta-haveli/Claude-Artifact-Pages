@@ -642,25 +642,6 @@ function getSlice(arr, range) {
   return arr.slice(range[0], range[1]+1);
 }
 
-function setFilter(f) {
-  activeFilter = f;
-  ['all','early','peak','recent'].forEach(k => {
-    document.getElementById('btn-'+k).classList.toggle('active', k===f);
-  });
-  updateCharts();
-}
-
-function setCause(c) {
-  activeCause = c;
-  ['cause-all','env','soc'].forEach(k => {
-    const id = 'btn-' + k;
-    document.getElementById(id).classList.toggle('active',
-      (k==='cause-all' && c==='all') || (k==='env' && c==='env') || (k==='soc' && c==='social')
-    );
-  });
-  updateCharts();
-}
-
 // ─── CHART.JS DEFAULTS ───────────────────────────────────────
 Chart.defaults.font.family = "system-ui, -apple-system, Helvetica, Arial, sans-serif";
 Chart.defaults.font.size = 11;
@@ -955,6 +936,26 @@ function updateCharts() {
 
   [chartA, chartB, chartC, chartD].forEach(c => c.update());
 }
+// ─── FILTER FUNCTIONS (on window so onclick attrs can reach them) ────
+  window.setFilter = function(f) {
+    activeFilter = f;
+    ['all','early','peak','recent'].forEach(k => {
+      document.getElementById('btn-'+k).classList.toggle('active', k===f);
+    });
+    updateCharts();
+  };
+
+  window.setCause = function(c) {
+    activeCause = c;
+    ['cause-all','env','soc'].forEach(k => {
+      const id = 'btn-' + k;
+      document.getElementById(id).classList.toggle('active',
+        (k==='cause-all' && c==='all') || (k==='env' && c==='env') || (k==='soc' && c==='social')
+      );
+    });
+    updateCharts();
+  };
+
 }); // end waitForChart
 </script>
 </body>
