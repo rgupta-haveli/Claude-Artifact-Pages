@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haveli Foundation — Historical Giving Dashboard</title>
+<!--
+  SharePoint-safe: Chart.js is loaded via an inline async loader that tries
+  three CDNs in sequence. All charts initialize only after the library loads.
+  Google Fonts removed — system fonts used instead (no external requests).
+-->
+<script>
+(function(){
+  var cdns = [
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js'
+  ];
+  var idx = 0;
+  function load(){
+    if(idx >= cdns.length){ document.getElementById('chart-error').style.display='block'; return; }
+    var s = document.createElement('script');
+    s.src = cdns[idx++];
+    s.onload = function(){ if(typeof Chart !== 'undefined') window.__chartReady = true; };
+    s.onerror = load;
+    document.head.appendChild(s);
+  }
+  load();
+})();
+</script>
+<style>
+  :root {
+    --font-display: Georgia, 'Times New Roman', serif;
+    --font-body:    -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --green:       #128140;
+    --green-light: #5aab78;
+    --green-pale:  #c8e6d4;
+    --green-mist:  #eaf5ee;
+    --orange:      #E16126;
+    --orange-light:#f0956a;
+    --orange-pale: #fad9c8;
+    --orange-mist: #fdf1eb;
+    --cream:       #F0EDE6;
+    --grey:        #727170;
+    --grey-dark:   #3a3937;
+    --grey-light:  #d4d2cf;
+    --charcoal:    #2a2825;
+    --paper:       #faf9f6;
+    --shadow:      rgba(42,40,37,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--cream);
+    color: var(--charcoal);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--charcoal);
+    padding: 36px 48px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(18,129,64,0.25) 0%, transparent 70%);
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; left: 200px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(225,97,38,0.18) 0%, transparent 70%);
+  }
+  .header-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 24px;
+    position: relative;
+    z-index: 1;
+  }
+  .header-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--green-light);
+    margin-bottom: 8px;
+  }
+  .header-title {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.1;
+  }
+  .header-title span { color: var(--orange-light); }
+
+  .kpi-group {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .kpi {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 16px 24px;
+    text-align: right;
+    backdrop-filter: blur(4px);
+  }
+  .kpi-val {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+  .kpi-val span { color: var(--green-light); font-size: 16px; vertical-align: super; }
+  .kpi-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--grey-light);
+    margin-top: 4px;
+  }
+
+  /* FILTER BAR */
+  .filter-bar {
+    background: var(--paper);
+    border-bottom: 1px solid var(--grey-light);
+    padding: 14px 48px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+  .filter-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .filter-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-right: 4px;
+  }
+  .filter-btn {
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1.5px solid var(--grey-light);
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--grey);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filter-btn:hover { border-color: var(--green); color: var(--green); }
+  .filter-btn.active {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff;
+  }
+  .filter-btn.orange.active {
+    background: var(--orange);
+    border-color: var(--orange);
+  }
+
+  /* MAIN GRID */
+  .main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 40px 48px 60px;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--grey-light);
+  }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  .charts-grid.full { grid-template-columns: 1fr; }
+
+  .card {
+    background: var(--paper);
+    border-radius: 16px;
+    padding: 28px 28px 22px;
+    box-shadow: 0 2px 16px var(--shadow);
+    border: 1px solid rgba(0,0,0,0.04);
+    position: relative;
+    transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: 0 4px 28px rgba(42,40,37,0.13); }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--charcoal);
+    line-height: 1.3;
+  }
+  .card-total {
+    font-size: 22px;
+    font-weight: 700;
+    font-family: var(--font-display);
+    color: var(--charcoal);
+  }
+  .card-total small {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--grey);
+    font-family: var(--font-body);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-left: 4px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 220px;
+  }
+  .chart-wrap.tall { height: 260px; }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--grey);
+    font-weight: 500;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+
+
+  /* PIE SECTION */
+  .pie-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+  .pie-card {
+    background: var(--paper);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 2px 16px var(--shadow);
+    border: 1px solid rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s;
+  }
+  .pie-card:hover { box-shadow: 0 4px 28px rgba(42,40,37,0.13); }
+  .pie-layout {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    margin-top: 16px;
+  }
+  .pie-wrap {
+    width: 170px;
+    height: 170px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .pie-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .pie-center-val {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--charcoal);
+    line-height: 1;
+  }
+  .pie-center-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--grey);
+    margin-top: 2px;
+  }
+  .pie-legend {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .pie-legend-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .pie-legend-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pie-legend-dot {
+    width: 9px; height: 9px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .pie-legend-name {
+    font-size: 12px;
+    color: var(--grey-dark);
+    font-weight: 400;
+  }
+  .pie-legend-val {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--charcoal);
+  }
+
+  /* TOOLTIPS handled by Chart.js */
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .charts-grid, .pie-grid { grid-template-columns: 1fr; }
+    .main { padding: 24px 20px 40px; }
+    .header { padding: 28px 20px 24px; }
+    .filter-bar { padding: 12px 20px; }
+    .header-title { font-size: 26px; }
+    .pie-layout { flex-direction: column; align-items: flex-start; }
+  }
+
+  /* Fade in animation */
+  .card, .pie-card {
+    animation: fadeUp 0.5s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card:nth-child(1) { animation-delay: 0.05s; }
+  .card:nth-child(2) { animation-delay: 0.1s; }
+  .card:nth-child(3) { animation-delay: 0.15s; }
+  .card:nth-child(4) { animation-delay: 0.2s; }
+  .pie-card:nth-child(1) { animation-delay: 0.25s; }
+  .pie-card:nth-child(2) { animation-delay: 0.3s; }
+
+  .accent-line {
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--green), var(--orange));
+    margin-bottom: 32px;
+    opacity: 0.5;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="chart-error" style="display:none;background:#fad9c8;border:1.5px solid #E16126;border-radius:8px;padding:14px 20px;margin:20px 48px;font-size:13px;color:#2a2825;">
+  ⚠️ <strong>Charts could not load.</strong> This dashboard requires access to an external charting library (Chart.js). If you are viewing this inside SharePoint or a restricted network, please ask your IT admin to allow <code>cdnjs.cloudflare.com</code>, <code>cdn.jsdelivr.net</code>, or <code>unpkg.com</code>.
+</div>
+<header class="header">
+  <div class="header-inner">
+    <div>
+      <div class="header-label">Haveli Foundation</div>
+      <h1 class="header-title">Historical Giving<br><span>Dashboard</span></h1>
+    </div>
+    <div class="kpi-group">
+      <div class="kpi">
+        <div class="kpi-val"><span>$</span>90M</div>
+        <div class="kpi-label">Total Donations</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val"><span>$</span>48.5M</div>
+        <div class="kpi-label">Environmental</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val"><span>$</span>41.4M</div>
+        <div class="kpi-label">Social</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- FILTER BAR -->
+<div class="filter-bar">
+  <div class="filter-inner">
+    <span class="filter-label">View</span>
+    <button class="filter-btn active" id="btn-all" onclick="setFilter('all')">All Years</button>
+    <button class="filter-btn" id="btn-early" onclick="setFilter('early')">2011–2017</button>
+    <button class="filter-btn" id="btn-peak" onclick="setFilter('peak')">2018–2020</button>
+    <button class="filter-btn" id="btn-recent" onclick="setFilter('recent')">2021–2025</button>
+    <span class="filter-label" style="margin-left:16px">Cause</span>
+    <button class="filter-btn active" id="btn-cause-all" onclick="setCause('all')">All</button>
+    <button class="filter-btn" id="btn-env" onclick="setCause('env')">Environmental</button>
+    <button class="filter-btn orange" id="btn-soc" onclick="setCause('social')">Social</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main class="main">
+
+  <div class="accent-line"></div>
+
+  <p class="section-title">Annual Overview · Charts A–B</p>
+  <div class="charts-grid" style="margin-bottom:24px;">
+
+    <!-- Chart A: Total Donations -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Total Donations by Year</div>
+        <div class="card-total">$90M <small>total</small></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chartA"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart B: By Cause -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">By Cause</div>
+        <div class="card-total">$90M <small>total</small></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chartB"></canvas>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green-light)"></div>Environmental</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange-light)"></div>Social</div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="section-title">Grantor & Organization Breakdown · Charts C–D</p>
+  <div class="charts-grid" style="margin-bottom:32px;">
+
+    <!-- Chart C: By Grantor -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">By Grantor</div>
+        <div class="card-total">$90M <small>total</small></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chartC"></canvas>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green-light)"></div>Foundation</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange-light)"></div>DAF</div>
+      </div>
+    </div>
+
+    <!-- Chart D: Top Orgs -->
+    <div class="card" id="cardD">
+      <div class="card-header">
+        <div class="card-title">Donations to Top Organizations</div>
+        <div class="card-total">$50.9M <small>total</small></div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chartD"></canvas>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green-light)"></div>GWC + Re Wild</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange-light)"></div>Boys & Girls Club</div>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="section-title">Organization Breakdown · Pie Charts</p>
+  <div class="pie-grid">
+
+    <!-- Pie 1: Environmental -->
+    <div class="pie-card">
+      <div class="card-header">
+        <div class="card-title">Environmental Organizations</div>
+        <div class="card-total">$48.5M <small>total</small></div>
+      </div>
+      <div class="pie-layout">
+        <div class="pie-wrap">
+          <canvas id="pieEnv"></canvas>
+          <div class="pie-center">
+            <div class="pie-center-val">$48.5M</div>
+            <div class="pie-center-label">ENV</div>
+          </div>
+        </div>
+        <div class="pie-legend" id="envLegend"></div>
+      </div>
+    </div>
+
+    <!-- Pie 2: Social -->
+    <div class="pie-card">
+      <div class="card-header">
+        <div class="card-title">Social Organizations</div>
+        <div class="card-total">$41.4M <small>total</small></div>
+      </div>
+      <div class="pie-layout">
+        <div class="pie-wrap">
+          <canvas id="pieSoc"></canvas>
+          <div class="pie-center">
+            <div class="pie-center-val">$41.4M</div>
+            <div class="pie-center-label">SOCIAL</div>
+          </div>
+        </div>
+        <div class="pie-legend" id="socLegend"></div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+// Wait for Chart.js to finish loading (any CDN fallback), then initialize
+function waitForChart(fn, attempts) {
+  attempts = attempts || 0;
+  if (typeof Chart !== 'undefined') { fn(); return; }
+  if (attempts > 100) { document.getElementById('chart-error').style.display = 'block'; return; }
+  setTimeout(function(){ waitForChart(fn, attempts + 1); }, 50);
+}
+
+waitForChart(function(){
+// ─── DATA ───────────────────────────────────────────────────
+const allYears = [2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
+
+const dataA = {
+  total: [0.1,0.5,0.9,1.3,3.9,1.6,4.1,21.5,15.7,5.4,8.8,13.9,3.9,6.7,1.5]
+};
+const dataB = {
+  env:    [0,0,1,0,1,1,1,17,12,2,4,8,1,0,0],
+  social: [0,0,0,1,2,1,3,5,4,4,5,6,3,7,1]
+};
+const dataC = {
+  foundation: [0,1,1,1,4,2,4,21,16,5,8,3,2,1,1],
+  daf:        [0,0,0,0,0,0,0,0,0,0,1,11,2,5,1]
+};
+
+const yearsD = [2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025];
+const dataD = {
+  gwc:  [0,0,0,1,1,1,16,11,2,3,8,0,0,0],
+  bgc:  [0,0,0,0,0,0,3,1,2,1,1,1,1,1]
+};
+
+// Pie data
+const envOrgs = [
+  { name: 'GWC',                       val: 40.8 },
+  { name: 'Re Wild',                   val: 3.8  },
+  { name: 'Maasai Wilderness',         val: 1.1  },
+  { name: 'Other',                     val: 1.8  },
+  { name: 'Wolf Conservation Center', val: 0.5  },
+  { name: 'Cicero Research',           val: 0.5  },
+];
+const socOrgs = [
+  { name: 'Other',                    val: 13.2 },
+  { name: "Boys & Girls Club Austin", val: 9.7  },
+  { name: 'Grammy Museum Foundation', val: 7.6  },
+  { name: 'UC Berkeley Foundation',   val: 6.0  },
+  { name: 'Austin Community Found.',  val: 3.2  },
+  { name: 'Global Citizen',           val: 1.7  },
+];
+
+// ─── COLORS ─────────────────────────────────────────────────
+const C = {
+  green:       '#128140',
+  greenLight:  '#5aab78',
+  greenPale:   '#c8e6d4',
+  orange:      '#E16126',
+  orangeLight: '#f0956a',
+  orangePale:  '#fad9c8',
+  grey:        '#727170',
+  greyLight:   '#d4d2cf',
+};
+
+const envPalette = ['#128140','#5aab78','#92c9a7','#c8e6d4','#a8d4b8','#7bb896'];
+const socPalette = ['#E16126','#f0956a','#f5b898','#fad9c8','#e89060','#d4562a'];
+
+// ─── FILTER STATE ────────────────────────────────────────────
+let activeFilter = 'all';
+let activeCause  = 'all';
+
+const filterRanges = {
+  all:    [0, 14],
+  early:  [0, 6],
+  peak:   [7, 9],
+  recent: [10, 14],
+};
+
+function getSlice(arr, range) {
+  return arr.slice(range[0], range[1]+1);
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  ['all','early','peak','recent'].forEach(k => {
+    document.getElementById('btn-'+k).classList.toggle('active', k===f);
+  });
+  updateCharts();
+}
+
+function setCause(c) {
+  activeCause = c;
+  ['cause-all','env','soc'].forEach(k => {
+    const id = 'btn-' + k;
+    document.getElementById(id).classList.toggle('active',
+      (k==='cause-all' && c==='all') || (k==='env' && c==='env') || (k==='soc' && c==='social')
+    );
+  });
+  updateCharts();
+}
+
+// ─── CHART.JS DEFAULTS ───────────────────────────────────────
+Chart.defaults.font.family = "system-ui, -apple-system, Helvetica, Arial, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#727170';
+Chart.defaults.plugins.legend.display = false;
+
+const tooltipDefaults = {
+  backgroundColor: '#2a2825',
+  titleColor: '#fff',
+  bodyColor: '#d4d2cf',
+  padding: 10,
+  cornerRadius: 8,
+  displayColors: true,
+  callbacks: {
+    label: ctx => ` $${ctx.parsed.y.toFixed(1)}M`
+  }
+};
+
+const axisDefaults = {
+  grid: { color: 'rgba(114,113,112,0.1)', drawBorder: false },
+  ticks: { color: '#727170' },
+  border: { display: false }
+};
+
+// ─── BUILD CHARTS ────────────────────────────────────────────
+
+// Chart A
+const ctxA = document.getElementById('chartA').getContext('2d');
+const chartA = new Chart(ctxA, {
+  type: 'bar',
+  data: {
+    labels: [...allYears],
+    datasets: [{
+      data: [...dataA.total],
+      backgroundColor: allYears.map(y => {
+        if (y >= 2018 && y <= 2020) return C.green;
+        if (y >= 2021 && y <= 2022) return C.greenLight;
+        return C.greenPale;
+      }),
+      borderRadius: 5,
+      borderSkipped: false,
+      hoverBackgroundColor: C.green,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { tooltip: { ...tooltipDefaults, callbacks: { label: ctx => ` $${ctx.parsed.y.toFixed(1)}M`, title: ctx => `Year ${ctx[0].label}` } } },
+    scales: {
+      x: { ...axisDefaults, grid: { display: false } },
+      y: { ...axisDefaults, ticks: { callback: v => '$'+v+'M', color: '#727170' } }
+    }
+  }
+});
+
+// Chart B
+const ctxB = document.getElementById('chartB').getContext('2d');
+const chartB = new Chart(ctxB, {
+  type: 'bar',
+  data: {
+    labels: [...allYears],
+    datasets: [
+      { label: 'Environmental', data: [...dataB.env],    backgroundColor: C.greenLight, borderRadius: { topLeft:4, topRight:4 }, borderSkipped: false, stack: 'b' },
+      { label: 'Social',        data: [...dataB.social], backgroundColor: C.orangeLight, borderRadius: 0, borderSkipped: false, stack: 'b' },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { tooltip: { ...tooltipDefaults, callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(1)}M`, title: ctx => `Year ${ctx[0].label}` } } },
+    scales: {
+      x: { ...axisDefaults, grid: { display: false }, stacked: true },
+      y: { ...axisDefaults, stacked: true, ticks: { callback: v => '$'+v+'M', color: '#727170' } }
+    }
+  }
+});
+
+// Chart C
+const ctxC = document.getElementById('chartC').getContext('2d');
+const chartC = new Chart(ctxC, {
+  type: 'bar',
+  data: {
+    labels: [...allYears],
+    datasets: [
+      { label: 'Foundation', data: [...dataC.foundation], backgroundColor: C.greenLight, borderRadius: { topLeft:4, topRight:4 }, stack: 'c' },
+      { label: 'DAF',        data: [...dataC.daf],        backgroundColor: C.orangeLight, borderRadius: 0, stack: 'c' },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { tooltip: { ...tooltipDefaults, callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(1)}M`, title: ctx => `Year ${ctx[0].label}` } } },
+    scales: {
+      x: { ...axisDefaults, grid: { display: false }, stacked: true },
+      y: { ...axisDefaults, stacked: true, ticks: { callback: v => '$'+v+'M', color: '#727170' } }
+    }
+  }
+});
+
+// ─── CHART D: canvas-drawn highlight box for 2021–2022 ───────
+const rewildBoxPlugin = {
+  id: 'rewildBox',
+  afterDraw(chart) {
+    const labels = chart.data.labels;
+    const idx2021 = labels.indexOf(2021);
+    const idx2022 = labels.indexOf(2022);
+    if (idx2021 === -1 || idx2022 === -1) return;
+
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data) return;
+    const bar2021 = meta.data[idx2021];
+    const bar2022 = meta.data[idx2022];
+    if (!bar2021 || !bar2022) return;
+
+    const { ctx, chartArea } = chart;
+    const pad = 6;
+    const halfW = bar2021.width / 2;
+    const x1 = bar2021.x - halfW - pad;
+    const x2 = bar2022.x + halfW + pad;
+    const y1 = chartArea.top - 4;
+    const y2 = chartArea.bottom;
+    const r  = 6;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x1 + r, y1);
+    ctx.lineTo(x2 - r, y1);
+    ctx.arcTo(x2, y1, x2, y1 + r, r);
+    ctx.lineTo(x2, y2 - r);
+    ctx.arcTo(x2, y2, x2 - r, y2, r);
+    ctx.lineTo(x1 + r, y2);
+    ctx.arcTo(x1, y2, x1, y2 - r, r);
+    ctx.lineTo(x1, y1 + r);
+    ctx.arcTo(x1, y1, x1 + r, y1, r);
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(225, 97, 38, 0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.stroke();
+
+    // label above the box
+    ctx.setLineDash([]);
+    ctx.font = "500 10px system-ui, -apple-system, Helvetica, Arial, sans-serif";
+    ctx.fillStyle = 'rgba(225, 97, 38, 0.85)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Partial Donation to Re Wild', (x1 + x2) / 2, y1 - 6);
+    ctx.restore();
+  }
+};
+
+const ctxD = document.getElementById('chartD').getContext('2d');
+const chartD = new Chart(ctxD, {
+  type: 'bar',
+  data: {
+    labels: [...yearsD],
+    datasets: [
+      { label: 'GWC + Re Wild',     data: [...dataD.gwc], backgroundColor: C.greenLight, borderRadius: { topLeft:4, topRight:4 }, stack: 'd' },
+      { label: "Boys & Girls Club", data: [...dataD.bgc], backgroundColor: C.orangeLight, borderRadius: 0, stack: 'd' },
+    ]
+  },
+  plugins: [rewildBoxPlugin],
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    layout: { padding: { top: 20 } },
+    plugins: {
+      tooltip: { ...tooltipDefaults, callbacks: { label: ctx => ` ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(1)}M`, title: ctx => `Year ${ctx[0].label}` } }
+    },
+    scales: {
+      x: { ...axisDefaults, grid: { display: false }, stacked: true },
+      y: { ...axisDefaults, stacked: true, ticks: { callback: v => '$'+v+'M', color: '#727170' } }
+    }
+  }
+});
+
+window.addEventListener('resize', () => chartD.update());
+
+// ─── PIE CHARTS ─────────────────────────────────────────────
+function buildPie(canvasId, data, palette, legendId) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d => d.name),
+      datasets: [{
+        data: data.map(d => d.val),
+        backgroundColor: palette,
+        borderWidth: 2,
+        borderColor: '#faf9f6',
+        hoverOffset: 10,
+        hoverBorderWidth: 3,
+        hoverBorderColor: '#faf9f6',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        tooltip: {
+          backgroundColor: '#2a2825',
+          titleColor: '#fff',
+          bodyColor: '#d4d2cf',
+          padding: 10,
+          cornerRadius: 8,
+          callbacks: {
+            label: ctx => ` $${ctx.parsed.toFixed(1)}M (${((ctx.parsed / data.reduce((a,d)=>a+d.val,0))*100).toFixed(0)}%)`
+          }
+        }
+      }
+    }
+  });
+
+  // Build custom legend with hover interactions
+  const legendEl = document.getElementById(legendId);
+  data.forEach((d, i) => {
+    const total = data.reduce((a,x)=>a+x.val,0);
+    const pct = ((d.val/total)*100).toFixed(0);
+    const item = document.createElement('div');
+    item.className = 'pie-legend-item';
+    item.style.cursor = 'pointer';
+    item.innerHTML = `
+      <div class="pie-legend-left">
+        <div class="pie-legend-dot" style="background:${palette[i]}"></div>
+        <span class="pie-legend-name">${d.name}</span>
+      </div>
+      <span class="pie-legend-val">$${d.val}M <span style="color:var(--grey);font-weight:400">(${pct}%)</span></span>
+    `;
+
+    // Hover: activate the matching arc
+    item.addEventListener('mouseenter', () => {
+      item.style.background = 'rgba(0,0,0,0.04)';
+      item.style.borderRadius = '6px';
+      // Synthesize a Chart.js hover event on the arc at index i
+      chart.setActiveElements([{ datasetIndex: 0, index: i }]);
+      chart.tooltip.setActiveElements([{ datasetIndex: 0, index: i }], { x: 0, y: 0 });
+      chart.update('none');
+    });
+    item.addEventListener('mouseleave', () => {
+      item.style.background = '';
+      chart.setActiveElements([]);
+      chart.tooltip.setActiveElements([], { x: 0, y: 0 });
+      chart.update('none');
+    });
+
+    legendEl.appendChild(item);
+  });
+  return chart;
+}
+
+buildPie('pieEnv', envOrgs, envPalette, 'envLegend');
+buildPie('pieSoc', socOrgs, socPalette, 'socLegend');
+
+// ─── FILTER / UPDATE ─────────────────────────────────────────
+function updateCharts() {
+  const [s, e] = filterRanges[activeFilter];
+  const years = allYears.slice(s, e+1);
+
+  // Chart A
+  chartA.data.labels = years;
+  chartA.data.datasets[0].data = dataA.total.slice(s, e+1);
+  chartA.data.datasets[0].backgroundColor = years.map(y => {
+    if (y >= 2018 && y <= 2020) return C.green;
+    if (y >= 2021 && y <= 2022) return C.greenLight;
+    return C.greenPale;
+  });
+
+  // Chart B - cause filter
+  chartB.data.labels = years;
+  const envVis = activeCause !== 'social' ? dataB.env.slice(s, e+1)    : new Array(e-s+1).fill(0);
+  const socVis = activeCause !== 'env'    ? dataB.social.slice(s, e+1) : new Array(e-s+1).fill(0);
+  chartB.data.datasets[0].data = envVis;
+  chartB.data.datasets[1].data = socVis;
+
+  // Chart C
+  chartC.data.labels = years;
+  const cFound = activeCause !== 'social' ? dataC.foundation.slice(s, e+1) : new Array(e-s+1).fill(0);
+  const cDaf   = activeCause !== 'env'    ? dataC.daf.slice(s, e+1)        : new Array(e-s+1).fill(0);
+  chartC.data.datasets[0].data = cFound;
+  chartC.data.datasets[1].data = cDaf;
+
+  // Chart D - needs its own year range since it starts at 2012
+  const dStart = Math.max(0, s - 1);
+  const dEnd   = Math.min(yearsD.length-1, e > 0 ? e - 1 : yearsD.length-1);
+  if (activeFilter === 'all') {
+    chartD.data.labels = [...yearsD];
+    chartD.data.datasets[0].data = activeCause !== 'social' ? [...dataD.gwc] : new Array(yearsD.length).fill(0);
+    chartD.data.datasets[1].data = activeCause !== 'env'    ? [...dataD.bgc] : new Array(yearsD.length).fill(0);
+  } else {
+    const dYears = yearsD.filter(y => y >= allYears[s] && y <= allYears[e]);
+    const dS = yearsD.indexOf(dYears[0]);
+    const dE = yearsD.indexOf(dYears[dYears.length-1]);
+    chartD.data.labels = dYears;
+    chartD.data.datasets[0].data = activeCause !== 'social' ? dataD.gwc.slice(dS, dE+1) : new Array(dYears.length).fill(0);
+    chartD.data.datasets[1].data = activeCause !== 'env'    ? dataD.bgc.slice(dS, dE+1) : new Array(dYears.length).fill(0);
+  }
+
+  [chartA, chartB, chartC, chartD].forEach(c => c.update());
+}
+}); // end waitForChart
+</script>
+</body>
+</html>
