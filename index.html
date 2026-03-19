@@ -438,14 +438,14 @@
 <div class="filter-bar">
   <div class="filter-inner">
     <span class="filter-label">View</span>
-    <button class="filter-btn active" id="btn-all" onclick="setFilter('all')">All Years</button>
-    <button class="filter-btn" id="btn-early" onclick="setFilter('early')">2011–2017</button>
-    <button class="filter-btn" id="btn-peak" onclick="setFilter('peak')">2018–2020</button>
-    <button class="filter-btn" id="btn-recent" onclick="setFilter('recent')">2021–2025</button>
+    <button class="filter-btn active" id="btn-all">All Years</button>
+    <button class="filter-btn" id="btn-early">2011–2017</button>
+    <button class="filter-btn" id="btn-peak">2018–2020</button>
+    <button class="filter-btn" id="btn-recent">2021–2025</button>
     <span class="filter-label" style="margin-left:16px">Cause</span>
-    <button class="filter-btn active" id="btn-cause-all" onclick="setCause('all')">All</button>
-    <button class="filter-btn" id="btn-env" onclick="setCause('env')">Environmental</button>
-    <button class="filter-btn orange" id="btn-soc" onclick="setCause('social')">Social</button>
+    <button class="filter-btn active" id="btn-cause-all">All</button>
+    <button class="filter-btn" id="btn-env">Environmental</button>
+    <button class="filter-btn orange" id="btn-soc">Social</button>
   </div>
 </div>
 
@@ -936,25 +936,33 @@ function updateCharts() {
 
   [chartA, chartB, chartC, chartD].forEach(c => c.update());
 }
-// ─── FILTER FUNCTIONS (on window so onclick attrs can reach them) ────
-  window.setFilter = function(f) {
+// ─── FILTER FUNCTIONS ────────────────────────────────────────
+  function setFilter(f) {
     activeFilter = f;
     ['all','early','peak','recent'].forEach(k => {
       document.getElementById('btn-'+k).classList.toggle('active', k===f);
     });
     updateCharts();
-  };
+  }
 
-  window.setCause = function(c) {
+  function setCause(c) {
     activeCause = c;
     ['cause-all','env','soc'].forEach(k => {
-      const id = 'btn-' + k;
-      document.getElementById(id).classList.toggle('active',
+      document.getElementById('btn-'+k).classList.toggle('active',
         (k==='cause-all' && c==='all') || (k==='env' && c==='env') || (k==='soc' && c==='social')
       );
     });
     updateCharts();
-  };
+  }
+
+  // Bind filter buttons via addEventListener (works in all environments)
+  document.getElementById('btn-all').addEventListener('click',       () => setFilter('all'));
+  document.getElementById('btn-early').addEventListener('click',     () => setFilter('early'));
+  document.getElementById('btn-peak').addEventListener('click',      () => setFilter('peak'));
+  document.getElementById('btn-recent').addEventListener('click',    () => setFilter('recent'));
+  document.getElementById('btn-cause-all').addEventListener('click', () => setCause('all'));
+  document.getElementById('btn-env').addEventListener('click',       () => setCause('env'));
+  document.getElementById('btn-soc').addEventListener('click',       () => setCause('social'));
 
 }); // end waitForChart
 </script>
